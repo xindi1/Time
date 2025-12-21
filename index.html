@@ -1,0 +1,1254 @@
+<!-- index.html  (Sun-Clock-styled Timer + Stopwatch + World Clock + Sun-phase background + progress bars) -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Time Kit</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#0b1b3d" />
+  <meta name="description" content="Timer, stopwatch, and world clock with a rugged blue/light theme and sun-phase background." />
+
+  <!-- PWA install support (put these next to this HTML):
+       - manifest.webmanifest
+       - sw.js
+       - icons/icon-192.png
+       - icons/icon-512.png
+  -->
+  <link rel="manifest" href="manifest.webmanifest" />
+
+  <style>
+    :root{
+      --bg:#0b1b3d;
+      --panel:#0f172a;
+      --card:#020617;
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+      --border:#1f2937;
+      --accent:#60a5fa;
+      --badge:#111827;
+
+      --g-night: radial-gradient(circle at top, #020617 0, #020617 45%, #000000 90%);
+      --g-dawn:  radial-gradient(circle at top, #1e293b 0, #0b1b3d 45%, #020617 90%);
+      --g-day:   radial-gradient(circle at top, #1d4ed8 0, #0b1b3d 45%, #020617 90%);
+      --g-dusk:  radial-gradient(circle at top, #7c2d12 0, #0b1b3d 45%, #020617 90%);
+    }
+    html[data-theme="light"]{
+      --bg:#e5f0ff;
+      --panel:#ffffff;
+      --card:#f1f5f9;
+      --text:#0f172a;
+      --muted:#64748b;
+      --border:#cbd5e1;
+      --accent:#2563eb;
+      --badge:#e2e8f0;
+
+      --g-night: radial-gradient(circle at top, #020617 0, #020617 45%, #020617 90%);
+      --g-dawn:  radial-gradient(circle at top, #dbeafe 0, #e5f0ff 45%, #e2e8f0 90%);
+      --g-day:   radial-gradient(circle at top, #bfdbfe 0, #eff6ff 45%, #e2e8f0 90%);
+      --g-dusk:  radial-gradient(circle at top, #fed7aa 0, #fee2e2 45%, #e2e8f0 90%);
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color:var(--text);
+      background:var(--g-dawn);
+      padding:16px;
+      transition:background .6s ease;
+    }
+    body.phase-night{background:var(--g-night)}
+    body.phase-dawn{background:var(--g-dawn)}
+    body.phase-day{background:var(--g-day)}
+    body.phase-dusk{background:var(--g-dusk)}
+
+    .shell{max-width:980px;margin:0 auto}
+    .frame{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:20px;
+      box-shadow:0 14px 30px rgba(15,23,42,.35);
+      padding:16px 18px 18px;
+    }
+    header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:10px;
+    }
+    h1{
+      margin:0;
+      font-size:1.15rem;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+    .sub{
+      margin-top:3px;
+      font-size:.82rem;
+      color:var(--muted);
+    }
+
+    .theme-toggle{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      border-radius:999px;
+      padding:3px 6px;
+      background:var(--card);
+      border:1px solid var(--border);
+      font-size:.72rem;
+    }
+    .theme-toggle span{padding-left:4px;color:var(--muted)}
+    .theme-toggle button{
+      border-radius:999px;
+      border:none;
+      background:transparent;
+      color:var(--muted);
+      padding:3px 10px;
+      font-size:.72rem;
+      cursor:pointer;
+      font-family:inherit;
+    }
+    .theme-toggle button.active{background:var(--accent);color:#fff}
+
+    .seg{
+      display:flex;
+      gap:6px;
+      background:rgba(15,23,42,.9);
+      border-radius:999px;
+      padding:3px;
+      border:1px solid var(--border);
+      margin:6px 0 12px;
+    }
+    html[data-theme="light"] .seg{background:rgba(255,255,255,.95)}
+    .seg button{
+      flex:1;
+      border:none;
+      border-radius:999px;
+      padding:7px 10px;
+      font-size:.85rem;
+      cursor:pointer;
+      color:var(--muted);
+      background:transparent;
+    }
+    .seg button.active{background:var(--accent);color:#fff}
+
+    .view{display:none}
+    .view.active{display:block}
+
+    .grid{
+      display:grid;
+      grid-template-columns:1.1fr 1.1fr 1fr;
+      gap:12px;
+    }
+    @media(max-width:860px){.grid{grid-template-columns:1fr}}
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:12px 12px 13px;
+      min-height:120px;
+    }
+    .label{
+      font-size:.78rem;
+      color:var(--muted);
+      margin-bottom:4px;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+    }
+    .big{
+      font-size:2.35rem;
+      font-weight:850;
+      letter-spacing:.04em;
+      font-variant-numeric:tabular-nums;
+    }
+    .mono{
+      font-variant-numeric:tabular-nums;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace
+    }
+    .row{
+      display:flex;
+      justify-content:space-between;
+      align-items:baseline;
+      gap:12px;
+      margin-top:6px;
+    }
+    .small{font-size:.8rem;color:var(--muted)}
+    .hr{height:1px;background:rgba(148,163,184,.28);margin:10px 0;border-radius:999px}
+
+    /* progress bar (same vibe as Sun Clock) */
+    .progress{
+      margin-top:8px;
+      height:9px;
+      border-radius:999px;
+      background:rgba(148,163,184,.35);
+      position:relative;
+      overflow:hidden;
+    }
+    .segm{position:absolute;top:0;height:100%}
+    .seg-blue{background:rgba(59,130,246,.45)}
+    .seg-day{background:rgba(148,163,184,.35)}
+    .marker{position:absolute;top:-2px;bottom:-2px;width:2px;border-radius:999px;background:var(--text);opacity:.9}
+
+    input, button, select{
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:var(--panel);
+      color:var(--text);
+      padding:7px 9px;
+      font-size:.86rem;
+      font-family:inherit;
+    }
+    input::placeholder{color:var(--muted)}
+    button{cursor:pointer}
+    .btn-primary{background:var(--accent);border-color:transparent;color:#fff}
+    .btn-secondary{background:var(--panel)}
+    .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    .help{font-size:.74rem;color:var(--muted);margin-top:6px;line-height:1.35}
+
+    .settings{
+      margin-top:14px;
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:10px 12px 12px;
+    }
+    .settings-grid{
+      display:grid;
+      grid-template-columns:1.4fr 1fr 1fr;
+      gap:8px;
+      margin-top:8px;
+    }
+    @media(max-width:740px){.settings-grid{grid-template-columns:1fr 1fr}}
+    @media(max-width:520px){.settings-grid{grid-template-columns:1fr}}
+
+    .list{
+      margin-top:10px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .tile{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:10px 10px 11px;
+    }
+    .tile-top{
+      display:flex;
+      align-items:baseline;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .tile-name{font-weight:750}
+    .tile-time{font-size:1.25rem;font-weight:850}
+    .pill{
+      display:inline-flex;
+      gap:6px;
+      align-items:center;
+      border:1px solid var(--border);
+      background:rgba(148,163,184,.12);
+      border-radius:999px;
+      padding:4px 10px;
+      font-size:.78rem;
+      color:var(--muted);
+    }
+
+    .footer{
+      margin-top:12px;
+      padding-top:10px;
+      border-top:1px solid rgba(148,163,184,.28);
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:space-between;
+      gap:8px;
+      font-size:.78rem;
+      color:var(--muted);
+    }
+    .footer strong{color:var(--text);font-weight:650}
+    .link{
+      color:var(--accent);
+      text-decoration:none;
+      border-bottom:1px dashed rgba(96,165,250,.55);
+    }
+
+/* =========================
+   MOBILE COMPRESSION (iPhone)
+   Sun-Clock Rugged — Compact Mode
+========================= */
+@media (max-width: 520px){
+
+  body{
+    padding: 10px;
+  }
+
+  .frame{
+    padding: 12px 12px 14px;
+    border-radius: 18px;
+  }
+
+  header{
+    margin-bottom: 6px;
+  }
+
+  h1{
+    font-size: 0.95rem;
+    letter-spacing: 0.06em;
+  }
+
+  .sub{
+    font-size: 0.72rem;
+    margin-top: 2px;
+  }
+
+  /* Segmented nav tighter */
+  .seg{
+    margin: 4px 0 8px;
+    padding: 2px;
+  }
+
+  .seg button{
+    padding: 6px 8px;
+    font-size: 0.78rem;
+  }
+
+  /* Cards */
+  .card{
+    padding: 10px 10px 11px;
+    border-radius: 14px;
+    min-height: unset;
+  }
+
+  .label{
+    font-size: 0.68rem;
+    margin-bottom: 3px;
+  }
+
+  .big{
+    font-size: 1.85rem;
+    letter-spacing: 0.03em;
+  }
+
+  .small{
+    font-size: 0.72rem;
+  }
+
+  /* Progress bars */
+  .progress{
+    height: 7px;
+    margin-top: 6px;
+  }
+
+  /* Action rows */
+  .actions{
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  button,
+  input,
+  select{
+    padding: 6px 8px;
+    font-size: 0.78rem;
+    border-radius: 10px;
+  }
+
+  /* Timer / Stopwatch grids collapse tighter */
+  .grid{
+    gap: 8px;
+  }
+
+  /* Settings panel */
+  .settings{
+    margin-top: 10px;
+    padding: 9px 10px 10px;
+  }
+
+  .settings-grid{
+    gap: 6px;
+  }
+
+  /* World tiles */
+  .tile{
+    padding: 8px 9px 9px;
+    border-radius: 12px;
+  }
+
+  .tile-time{
+    font-size: 1.05rem;
+  }
+
+  /* Footer trimmed */
+  .footer{
+    margin-top: 8px;
+    padding-top: 8px;
+    font-size: 0.7rem;
+  }
+
+
+  /* iPhone fix: time visual balance (world clock tiles) */
+  .tile-top{
+    align-items: center; /* override baseline on mobile */
+  }
+  .tile-time{
+    line-height: 1;
+    display: flex;
+    align-items: center;
+  }
+  /* Big time optical balance */
+  #localClock, .big{
+    line-height: 1.05;
+  }
+
+
+/* ===== Timer iPhone balance fixes ===== */
+#timerDisplay{
+  line-height: 1;
+  display: block;
+  padding-top: 2px; /* optical nudge for iOS numerals */
+}
+/* Timer progress bar + marker alignment (iOS) */
+#view-timer .progress{
+  height: 6px;
+  margin-top: 6px;
+}
+#view-timer .marker{
+  top: -4px;
+  bottom: -4px;
+}
+#view-timer .segm{
+  top: 0;
+  height: 100%;
+}
+
+#view-timer .timer-inputs{
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  align-items: stretch;
+}
+#view-timer .timer-inputs > div{
+  min-width: 0;
+}
+/* Keep input labels aligned cleanly */
+#view-timer .timer-inputs .small{
+  margin-bottom: 2px;
+}
+
+
+}
+
+  </style>
+</head>
+
+<body>
+  <div class="shell">
+    <div class="frame">
+      <header>
+        <div>
+          <h1>Time Kit</h1>
+          <div class="sub">Timer · Stopwatch · World Clock · Sun-phase background</div>
+        </div>
+        <div class="theme-toggle" id="themeToggle">
+          <span>Theme</span>
+          <button type="button" data-theme="blue" class="active">Blue</button>
+          <button type="button" data-theme="light">Light</button>
+        </div>
+      </header>
+
+      <nav class="seg" aria-label="Views">
+        <button type="button" class="active" data-view="timer">Timer</button>
+        <button type="button" data-view="stopwatch">Stopwatch</button>
+        <button type="button" data-view="world">World</button>
+      </nav>
+
+      <!-- TIMER -->
+      <section class="view active" id="view-timer">
+        <div class="grid">
+          <div class="card">
+            <div class="label">Timer</div>
+            <div class="big mono" id="timerDisplay">00:00:00</div>
+            <div class="small" id="timerStatus">Ready</div>
+
+            <!-- progress: fill + marker -->
+            <div class="progress" aria-label="Timer progress">
+              <div class="segm seg-blue" id="timerFill" style="left:0%;width:0%"></div>
+              <div class="marker" id="timerMarker" style="left:0%"></div>
+            </div>
+
+            <div class="actions">
+              <button class="btn-primary" id="timerStartBtn" type="button">Start</button>
+              <button class="btn-secondary" id="timerPauseBtn" type="button">Pause</button>
+              <button class="btn-secondary" id="timerResetBtn" type="button">Reset</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="label">Set duration</div>
+            <div class="row timer-inputs">
+              <div>
+                <div class="small">Hours</div>
+                <input id="tHours" inputmode="numeric" placeholder="0" />
+              </div>
+              <div>
+                <div class="small">Minutes</div>
+                <input id="tMinutes" inputmode="numeric" placeholder="5" />
+              </div>
+              <div>
+                <div class="small">Seconds</div>
+                <input id="tSeconds" inputmode="numeric" placeholder="0" />
+              </div>
+            </div>
+            <div class="hr"></div>
+            <div class="small">Quick set</div>
+            <div class="actions">
+              <button class="btn-secondary" type="button" data-quick="60">1:00</button>
+              <button class="btn-secondary" type="button" data-quick="300">5:00</button>
+              <button class="btn-secondary" type="button" data-quick="900">15:00</button>
+              <button class="btn-secondary" type="button" data-quick="1800">30:00</button>
+            </div>
+            <div class="help">Progress bar fills as time elapses.</div>
+          </div>
+
+          <div class="card">
+            <div class="label">Chime</div>
+            <div class="small">Optional: play a short beep when the timer completes.</div>
+            <div class="actions">
+              <button class="btn-secondary" id="testBeepBtn" type="button">Test beep</button>
+              <span class="pill"><span>Sound</span><strong class="mono" id="soundState">On</strong></span>
+              <button class="btn-secondary" id="toggleSoundBtn" type="button">Toggle</button>
+            </div>
+            <div class="help">If iOS blocks audio until interaction, tap “Test beep” once.</div>
+          </div>
+        </div>
+
+        <div class="settings">
+          <div class="label">Sun-phase background (for your current area)</div>
+          <div class="settings-grid">
+            <div>
+              <div class="label" style="margin-bottom:6px;">Label (optional)</div>
+              <input id="locLabelInput" placeholder="e.g., Charlotte, NC" />
+            </div>
+            <div>
+              <div class="label" style="margin-bottom:6px;">Latitude</div>
+              <input id="latInput" type="number" step="0.0001" placeholder="35.2106" />
+            </div>
+            <div>
+              <div class="label" style="margin-bottom:6px;">Longitude</div>
+              <input id="lngInput" type="number" step="0.0001" placeholder="-80.8021" />
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn-primary" id="applyLocBtn" type="button">Apply</button>
+            <button class="btn-secondary" id="gpsBtn" type="button">Use my location</button>
+          </div>
+          <div class="help" id="sunPhaseNote">Phase: —</div>
+        </div>
+
+        <div class="footer">
+          <div><strong>Time Kit</strong> · Rugged build · v1.1</div>
+          <div>Local-only · PWA-ready</div>
+        </div>
+      </section>
+
+      <!-- STOPWATCH -->
+      <section class="view" id="view-stopwatch">
+        <div class="grid">
+          <div class="card">
+            <div class="label">Stopwatch</div>
+            <div class="big mono" id="swDisplay">00:00:00.000</div>
+            <div class="small" id="swStatus">Ready</div>
+
+            <!-- progress: shows where you are within the current minute (seconds + ms) -->
+            <div class="progress" aria-label="Stopwatch minute progress">
+              <div class="segm seg-day" id="swBase" style="left:0%;width:100%"></div>
+              <div class="segm seg-blue" id="swFill" style="left:0%;width:0%"></div>
+              <div class="marker" id="swMarker" style="left:0%"></div>
+            </div>
+
+            <div class="actions">
+              <button class="btn-primary" id="swStartBtn" type="button">Start</button>
+              <button class="btn-secondary" id="swLapBtn" type="button">Lap</button>
+              <button class="btn-secondary" id="swResetBtn" type="button">Reset</button>
+            </div>
+            <div class="help">Progress bar tracks the current minute (0–60s) so it stays meaningful indefinitely.</div>
+          </div>
+
+          <div class="card" style="grid-column: span 2;">
+            <div class="label">Laps</div>
+            <div class="small">Most recent on top.</div>
+            <div class="hr"></div>
+            <div class="list" id="lapsList"></div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <div><strong>Time Kit</strong> · Stopwatch</div>
+          <div><a class="link" href="#" id="swClearLaps">Clear laps</a></div>
+        </div>
+      </section>
+
+      <!-- WORLD -->
+      <section class="view" id="view-world">
+        <div class="grid">
+          <div class="card">
+            <div class="label">Local time</div>
+            <div class="big mono" id="localClock">--:--:--</div>
+            <div class="small" id="localDate">—</div>
+            <div class="small" id="localTz">—</div>
+
+            <!-- marker: top-of-hour progress -->
+            <div class="progress" aria-label="Top of hour marker">
+              <div class="segm seg-day" style="left:0%;width:100%"></div>
+              <div class="marker" id="localHourMarker" style="left:0%"></div>
+            </div>
+
+            <div class="help">Marker position = minutes + seconds within the hour.</div>
+          </div>
+
+          <div class="card">
+            <div class="label">Add timezone</div>
+            <div class="small">Use IANA IDs (e.g., Europe/London).</div>
+            <div class="row">
+              <input id="tzInput" placeholder="America/Los_Angeles" />
+              <button class="btn-primary" id="addTzBtn" type="button">Add</button>
+            </div>
+            <div class="hr"></div>
+            <div class="small">Shortcuts</div>
+            <div class="actions">
+              <button class="btn-secondary" type="button" data-tz="America/New_York">New York</button>
+              <button class="btn-secondary" type="button" data-tz="America/Los_Angeles">Los Angeles</button>
+              <button class="btn-secondary" type="button" data-tz="Europe/London">London</button>
+              <button class="btn-secondary" type="button" data-tz="Europe/Berlin">Berlin</button>
+              <button class="btn-secondary" type="button" data-tz="Asia/Tokyo">Tokyo</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="label">World list</div>
+            <div class="small">Each item includes a top-of-hour marker.</div>
+            <div class="hr"></div>
+            <div class="list" id="worldList"></div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <div><strong>Time Kit</strong> · World</div>
+          <div><a class="link" href="#" id="clearWorld">Reset world list</a></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+<script>
+/* =========================
+   THEME (Sun-Clock style)
+========================= */
+(function initTheme(){
+  const key='timekit_theme_v1';
+  const saved = localStorage.getItem(key) || 'blue';
+  document.documentElement.dataset.theme = saved === 'light' ? 'light' : 'blue';
+
+  const toggle = document.getElementById('themeToggle');
+  const buttons = toggle.querySelectorAll('button');
+  function setActive(mode){ buttons.forEach(b=>b.classList.toggle('active', b.dataset.theme===mode)); }
+  setActive(saved);
+
+  buttons.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const mode = btn.dataset.theme;
+      document.documentElement.dataset.theme = mode;
+      localStorage.setItem(key, mode);
+      setActive(mode);
+    });
+  });
+})();
+
+/* =========================
+   NAV
+========================= */
+(function initViews(){
+  const buttons = Array.from(document.querySelectorAll('nav.seg button'));
+  const views = {
+    timer: document.getElementById('view-timer'),
+    stopwatch: document.getElementById('view-stopwatch'),
+    world: document.getElementById('view-world')
+  };
+  function show(name){
+    buttons.forEach(b=>b.classList.toggle('active', b.dataset.view===name));
+    Object.entries(views).forEach(([k, el])=>el.classList.toggle('active', k===name));
+  }
+  buttons.forEach(b=>b.addEventListener('click', ()=>show(b.dataset.view)));
+})();
+
+/* =========================
+   UTIL
+========================= */
+const $ = (id)=>document.getElementById(id);
+function pad2(n){return String(n).padStart(2,'0')}
+function clamp01(x){return Math.max(0, Math.min(1, x))}
+function fmtHMS(totalMs){
+  const t = Math.max(0, Math.floor(totalMs));
+  const totalS = Math.floor(t/1000);
+  const h = Math.floor(totalS/3600);
+  const m = Math.floor((totalS%3600)/60);
+  const s = totalS%60;
+  return `${pad2(h)}:${pad2(m)}:${pad2(s)}`;
+}
+function fmtSW(ms){
+  const t = Math.max(0, Math.floor(ms));
+  const totalS = Math.floor(t/1000);
+  const h = Math.floor(totalS/3600);
+  const m = Math.floor((totalS%3600)/60);
+  const s = totalS%60;
+  const milli = t%1000;
+  return `${pad2(h)}:${pad2(m)}:${pad2(s)}.${String(milli).padStart(3,'0')}`;
+}
+
+/* =========================
+   AUDIO (timer beep)
+========================= */
+let soundOn = true;
+const LS_SOUND='timekit_sound_v1';
+try{
+  const raw = localStorage.getItem(LS_SOUND);
+  if(raw!==null) soundOn = raw === '1';
+}catch(_){}
+function syncSoundUI(){
+  $('soundState').textContent = soundOn ? 'On' : 'Off';
+  try{ localStorage.setItem(LS_SOUND, soundOn ? '1' : '0'); }catch(_){}
+}
+syncSoundUI();
+
+let audioCtx=null;
+function beep(){
+  if(!soundOn) return;
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type='sine';
+    o.frequency.value=880;
+    g.gain.value=0.03;
+    o.connect(g);
+    g.connect(audioCtx.destination);
+    o.start();
+    o.stop(audioCtx.currentTime + 0.18);
+  }catch(_){}
+}
+$('testBeepBtn').addEventListener('click', beep);
+$('toggleSoundBtn').addEventListener('click', ()=>{ soundOn=!soundOn; syncSoundUI(); });
+
+/* =========================
+   TIMER
+========================= */
+let timerTotalMs = 0;
+let timerRemainingMs = 0;
+let timerRunning = false;
+let timerEndAt = 0;
+let timerTick = null;
+
+function setTimerFromInputs(h,m,s){
+  const hh = Math.max(0, parseInt(h||'0',10) || 0);
+  const mm = Math.max(0, parseInt(m||'0',10) || 0);
+  const ss = Math.max(0, parseInt(s||'0',10) || 0);
+  timerTotalMs = (hh*3600 + mm*60 + ss) * 1000;
+  timerRemainingMs = timerTotalMs;
+  timerRunning = false;
+  timerEndAt = 0;
+  updateTimerUI();
+}
+
+function setTimerQuick(seconds){
+  timerTotalMs = Math.max(0, seconds|0)*1000;
+  timerRemainingMs = timerTotalMs;
+  timerRunning = false;
+  timerEndAt = 0;
+  $('tHours').value = String(Math.floor(seconds/3600));
+  $('tMinutes').value = String(Math.floor((seconds%3600)/60));
+  $('tSeconds').value = String(seconds%60);
+  updateTimerUI();
+}
+
+function updateTimerUI(){
+  $('timerDisplay').textContent = fmtHMS(timerRemainingMs);
+  $('timerStatus').textContent = timerRunning ? 'Running' : (timerRemainingMs===0 && timerTotalMs>0 ? 'Done' : 'Ready');
+
+  // progress fill: elapsed / total
+  const elapsed = timerTotalMs>0 ? (timerTotalMs - timerRemainingMs) : 0;
+  const frac = timerTotalMs>0 ? clamp01(elapsed / timerTotalMs) : 0;
+  $('timerFill').style.width = (frac*100).toFixed(2)+'%';
+  $('timerMarker').style.left = (frac*100).toFixed(2)+'%';
+}
+
+function timerStart(){
+  if(timerRunning) return;
+  // If duration not set yet, read inputs
+  if(timerTotalMs<=0){
+    setTimerFromInputs($('tHours').value, $('tMinutes').value, $('tSeconds').value);
+  }
+  if(timerRemainingMs<=0) return;
+
+  timerRunning = true;
+  timerEndAt = Date.now() + timerRemainingMs;
+
+  if(timerTick) clearInterval(timerTick);
+  timerTick = setInterval(()=>{
+    if(!timerRunning) return;
+    timerRemainingMs = Math.max(0, timerEndAt - Date.now());
+    if(timerRemainingMs===0){
+      timerRunning = false;
+      clearInterval(timerTick);
+      timerTick = null;
+      updateTimerUI();
+      beep();
+      return;
+    }
+    updateTimerUI();
+  }, 50);
+
+  updateTimerUI();
+}
+
+function timerPause(){
+  if(!timerRunning) return;
+  timerRunning = false;
+  timerRemainingMs = Math.max(0, timerEndAt - Date.now());
+  timerEndAt = 0;
+  updateTimerUI();
+}
+
+function timerReset(){
+  timerRunning = false;
+  timerEndAt = 0;
+  timerRemainingMs = timerTotalMs;
+  updateTimerUI();
+}
+
+$('timerStartBtn').addEventListener('click', timerStart);
+$('timerPauseBtn').addEventListener('click', timerPause);
+$('timerResetBtn').addEventListener('click', timerReset);
+
+document.querySelectorAll('[data-quick]').forEach(btn=>{
+  btn.addEventListener('click', ()=>setTimerQuick(parseInt(btn.dataset.quick,10)||0));
+});
+
+// initialize timer with input defaults (5:00 if empty)
+setTimerFromInputs($('tHours').value, $('tMinutes').value || '5', $('tSeconds').value);
+
+/* =========================
+   STOPWATCH
+========================= */
+let swRunning=false;
+let swStartAt=0;
+let swElapsed=0;
+let swRaf=0;
+let laps=[];
+
+function renderLaps(){
+  const box = $('lapsList');
+  box.innerHTML = '';
+  if(!laps.length){
+    const d=document.createElement('div');
+    d.className='small';
+    d.textContent='No laps yet.';
+    box.appendChild(d);
+    return;
+  }
+  laps.slice().reverse().forEach((lap, idx)=>{
+    const tile = document.createElement('div');
+    tile.className='tile';
+
+    const top = document.createElement('div');
+    top.className='tile-top';
+
+    const left = document.createElement('div');
+    left.className='tile-name';
+    left.textContent = `Lap ${laps.length - idx}`;
+
+    const right = document.createElement('div');
+    right.className='tile-time mono';
+    right.textContent = fmtSW(lap);
+
+    top.appendChild(left);
+    top.appendChild(right);
+
+    const meta = document.createElement('div');
+    meta.className='small';
+    meta.textContent = `Recorded at ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}`;
+
+    tile.appendChild(top);
+    tile.appendChild(meta);
+    box.appendChild(tile);
+  });
+}
+
+function swNowMs(){
+  return swRunning ? (swElapsed + (performance.now() - swStartAt)) : swElapsed;
+}
+
+function updateStopwatchUI(){
+  const ms = swNowMs();
+  $('swDisplay').textContent = fmtSW(ms);
+  $('swStatus').textContent = swRunning ? 'Running' : (ms>0 ? 'Paused' : 'Ready');
+
+  // progress within current minute (0..60s)
+  const withinMinute = (ms % 60000);
+  const frac = clamp01(withinMinute / 60000);
+  $('swFill').style.width = (frac*100).toFixed(2)+'%';
+  $('swMarker').style.left = (frac*100).toFixed(2)+'%';
+}
+
+function swLoop(){
+  updateStopwatchUI();
+  swRaf = requestAnimationFrame(swLoop);
+}
+
+function swStartPause(){
+  if(swRunning){
+    // pause
+    swElapsed = swNowMs();
+    swRunning = false;
+    $('swStartBtn').textContent='Start';
+  }else{
+    swRunning = true;
+    swStartAt = performance.now();
+    $('swStartBtn').textContent='Pause';
+  }
+  updateStopwatchUI();
+}
+
+function swReset(){
+  swRunning=false;
+  swElapsed=0;
+  swStartAt=0;
+  $('swStartBtn').textContent='Start';
+  updateStopwatchUI();
+}
+
+function swLap(){
+  const ms = swNowMs();
+  if(ms<=0) return;
+  laps.push(ms);
+  renderLaps();
+}
+
+$('swStartBtn').addEventListener('click', swStartPause);
+$('swResetBtn').addEventListener('click', swReset);
+$('swLapBtn').addEventListener('click', swLap);
+$('swClearLaps').addEventListener('click', (e)=>{ e.preventDefault(); laps=[]; renderLaps(); });
+
+renderLaps();
+updateStopwatchUI();
+swLoop();
+
+/* =========================
+   WORLD CLOCK
+========================= */
+const LS_WORLDS='timekit_worlds_v1';
+let worlds = [];
+try{
+  const raw = localStorage.getItem(LS_WORLDS);
+  if(raw) worlds = JSON.parse(raw);
+}catch(_){}
+if(!Array.isArray(worlds) || !worlds.length){
+  worlds = ["America/New_York","America/Los_Angeles","Europe/London"];
+}
+
+function safeSaveWorlds(){
+  try{ localStorage.setItem(LS_WORLDS, JSON.stringify(worlds)); }catch(_){}
+}
+
+function fmtInTZ(date, timeZone){
+  const t = new Intl.DateTimeFormat([], { timeZone, hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false }).format(date);
+  return t;
+}
+function dateInTZ(date, timeZone){
+  return new Intl.DateTimeFormat([], { timeZone, year:'numeric', month:'2-digit', day:'2-digit' }).format(date);
+}
+function hourFracMarker(date, timeZone){
+  // position within hour = (minutes + seconds/60)/60
+  const parts = new Intl.DateTimeFormat([], { timeZone, hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false }).formatToParts(date);
+  const mm = parseInt(parts.find(p=>p.type==='minute')?.value || '0',10);
+  const ss = parseInt(parts.find(p=>p.type==='second')?.value || '0',10);
+  return clamp01((mm + ss/60)/60);
+}
+
+function renderWorldList(){
+  const box = $('worldList');
+  box.innerHTML = '';
+  worlds.forEach((tz)=>{
+    const tile = document.createElement('div');
+    tile.className='tile';
+
+    const top = document.createElement('div');
+    top.className='tile-top';
+
+    const name = document.createElement('div');
+    name.className='tile-name';
+    name.textContent = tz;
+
+    const time = document.createElement('div');
+    time.className='tile-time mono';
+    time.dataset.tz = tz;
+    time.textContent = '--:--:--';
+
+    top.appendChild(name);
+    top.appendChild(time);
+
+    const bar = document.createElement('div');
+    bar.className='progress';
+    bar.setAttribute('aria-label', 'Top of hour marker');
+
+    const base = document.createElement('div');
+    base.className='segm seg-day';
+    base.style.left='0%';
+    base.style.width='100%';
+
+    const marker = document.createElement('div');
+    marker.className='marker';
+    marker.dataset.tzMarker = tz;
+    marker.style.left='0%';
+
+    bar.appendChild(base);
+    bar.appendChild(marker);
+
+    const actions = document.createElement('div');
+    actions.className='actions';
+    const rm = document.createElement('button');
+    rm.className='btn-secondary';
+    rm.type='button';
+    rm.textContent='Remove';
+    rm.addEventListener('click', ()=>{
+      worlds = worlds.filter(x=>x!==tz);
+      safeSaveWorlds();
+      renderWorldList();
+    });
+    actions.appendChild(rm);
+
+    tile.appendChild(top);
+    tile.appendChild(bar);
+    tile.appendChild(actions);
+    box.appendChild(tile);
+  });
+}
+
+function addTz(tz){
+  const id = (tz||'').trim();
+  if(!id) return;
+  // validate by attempting a format
+  try{
+    new Intl.DateTimeFormat([], { timeZone:id }).format(new Date());
+  }catch(_){
+    alert('That timezone ID is not valid on this device.');
+    return;
+  }
+  if(!worlds.includes(id)) worlds.unshift(id);
+  safeSaveWorlds();
+  renderWorldList();
+  $('tzInput').value='';
+}
+
+$('addTzBtn').addEventListener('click', ()=>addTz($('tzInput').value));
+$('tzInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') addTz($('tzInput').value); });
+document.querySelectorAll('[data-tz]').forEach(btn=>{
+  btn.addEventListener('click', ()=>addTz(btn.dataset.tz));
+});
+$('clearWorld').addEventListener('click', (e)=>{
+  e.preventDefault();
+  worlds = ["America/New_York","America/Los_Angeles","Europe/London"];
+  safeSaveWorlds();
+  renderWorldList();
+});
+renderWorldList();
+
+/* =========================
+   SUN PHASE BACKGROUND (Sun Clock principles)
+   - Uses sunrise/sunset at stored coordinates
+========================= */
+/* Compact SunCalc sunrise/sunset */
+const SunCalc = (function(){
+  const PI=Math.PI, rad=PI/180;
+  function toJulian(date){return date.valueOf()/86400000-0.5+2440588}
+  function fromJulian(j){return new Date((j+0.5-2440588)*86400000)}
+  function toDays(date){return toJulian(date)-2451545}
+  function solarMeanAnomaly(d){return rad*(357.5291+0.98560028*d)}
+  function eclipticLongitude(M){
+    const C = rad*(1.9148*Math.sin(M)+0.02*Math.sin(2*M)+0.0003*Math.sin(3*M));
+    const P = rad*102.9372;
+    return M + C + P + PI;
+  }
+  const e = rad*23.4397;
+  function declination(L,b=0){
+    return Math.asin(Math.sin(b)*Math.cos(e)+Math.cos(b)*Math.sin(e)*Math.sin(L));
+  }
+  function julianCycle(d,lw){return Math.round(d-0.0009-lw/(2*PI))}
+  function approxTransit(Ht,lw,n){return 0.0009+(Ht+lw)/(2*PI)+n}
+  function solarTransitJ(ds,M,L){return 2451545+ds+0.0053*Math.sin(M)-0.0069*Math.sin(2*L)}
+  function getTimes(date,lat,lng){
+    const lw=-lng*rad, phi=lat*rad;
+    const d=toDays(date);
+    const n=julianCycle(d,lw);
+    const ds=approxTransit(0,lw,n);
+    const M=solarMeanAnomaly(ds);
+    const L=eclipticLongitude(M);
+    const dec=declination(L);
+    const Jnoon=solarTransitJ(ds,M,L);
+    const h0=-0.833*rad;
+    const w=Math.acos((Math.sin(h0)-Math.sin(phi)*Math.sin(dec))/(Math.cos(phi)*Math.cos(dec)));
+    const a=approxTransit(w,lw,n);
+    const Jset=solarTransitJ(a,M,L);
+    const Jrise=Jnoon-(Jset-Jnoon);
+    return { sunrise: fromJulian(Jrise), sunset: fromJulian(Jset) };
+  }
+  return { getTimes };
+})();
+
+const LS_COORDS='timekit_coords_v1';
+let sunLoc = { lat: 35.2106, lng: -80.8021, label: '' };
+let phaseClass='';
+
+function loadCoords(){
+  try{
+    const raw = localStorage.getItem(LS_COORDS);
+    if(!raw) return;
+    const obj = JSON.parse(raw);
+    if(typeof obj.lat==='number' && typeof obj.lng==='number'){
+      sunLoc = { lat: obj.lat, lng: obj.lng, label: obj.label || '' };
+    }
+  }catch(_){}
+}
+function saveCoords(){
+  try{ localStorage.setItem(LS_COORDS, JSON.stringify(sunLoc)); }catch(_){}
+}
+function minutesFrom(d, mins){return new Date(d.getTime()+mins*60000)}
+
+function determinePhase(now, times){
+  if(!times) return 'day';
+  const sr=times.sunrise, ss=times.sunset;
+  const dawnStart=minutesFrom(sr,-30);
+  const dawnEnd=minutesFrom(sr,45);
+  const duskStart=minutesFrom(ss,-60);
+  const duskEnd=minutesFrom(ss,30);
+
+  if(now>=dawnStart && now<dawnEnd) return 'dawn';
+  if(now>=dawnEnd && now<duskStart) return 'day';
+  if(now>=duskStart && now<duskEnd) return 'dusk';
+  return 'night';
+}
+function setPhase(cls){
+  const next = 'phase-'+cls;
+  if(next===phaseClass) return;
+  if(phaseClass) document.body.classList.remove(phaseClass);
+  document.body.classList.add(next);
+  phaseClass = next;
+}
+
+function syncLocForm(){
+  $('locLabelInput').value = sunLoc.label || '';
+  $('latInput').value = String(sunLoc.lat.toFixed(4));
+  $('lngInput').value = String(sunLoc.lng.toFixed(4));
+}
+
+function applyLoc(){
+  const lat = parseFloat($('latInput').value);
+  const lng = parseFloat($('lngInput').value);
+  const label = $('locLabelInput').value.trim();
+  if(!isFinite(lat) || !isFinite(lng)){
+    $('sunPhaseNote').textContent = 'Phase: — (enter valid coordinates)';
+    return;
+  }
+  sunLoc = { lat, lng, label };
+  saveCoords();
+}
+
+$('applyLocBtn').addEventListener('click', ()=>{ applyLoc(); });
+$('gpsBtn').addEventListener('click', ()=>{
+  if(!navigator.geolocation){
+    $('sunPhaseNote').textContent = 'Phase: — (geolocation not available)';
+    return;
+  }
+  $('sunPhaseNote').textContent = 'Phase: — (detecting your location…)';
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      sunLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude, label: 'My Location' };
+      saveCoords();
+      syncLocForm();
+    },
+    err=>{
+      $('sunPhaseNote').textContent = 'Phase: — (geolocation error: ' + err.message + ')';
+    },
+    { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
+  );
+});
+
+/* =========================
+   MAIN TICK (clocks + markers)
+========================= */
+function updateWorldUI(){
+  const t = new Date();
+
+  // Local clock
+  $('localClock').textContent = `${pad2(t.getHours())}:${pad2(t.getMinutes())}:${pad2(t.getSeconds())}`;
+  $('localDate').textContent = `${t.getFullYear()}-${pad2(t.getMonth()+1)}-${pad2(t.getDate())}`;
+  $('localTz').textContent = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local time';
+
+  // local top-of-hour marker
+  const fracLocal = clamp01((t.getMinutes() + t.getSeconds()/60)/60);
+  $('localHourMarker').style.left = (fracLocal*100).toFixed(2)+'%';
+
+  // World tiles times + markers
+  document.querySelectorAll('[data-tz]').forEach(el=>{
+    const tz = el.dataset.tz;
+    el.textContent = fmtInTZ(t, tz);
+  });
+  document.querySelectorAll('[data-tz-marker]').forEach(el=>{
+    const tz = el.dataset.tzMarker;
+    const frac = hourFracMarker(t, tz);
+    el.style.left = (frac*100).toFixed(2)+'%';
+  });
+}
+
+function updateSunPhase(){
+  const t = new Date();
+  const base = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+  let times=null;
+  try{
+    times = SunCalc.getTimes(base, sunLoc.lat, sunLoc.lng);
+  }catch(_){ times=null; }
+  const phase = determinePhase(t, times);
+  setPhase(phase);
+
+  const label = sunLoc.label ? `${sunLoc.label} · ` : '';
+  $('sunPhaseNote').textContent = `Phase: ${phase.toUpperCase()} · ${label}lat ${sunLoc.lat.toFixed(4)}, lng ${sunLoc.lng.toFixed(4)}`;
+}
+
+loadCoords();
+syncLocForm();
+
+// PWA: register SW
+(function registerSW(){
+  if(!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js?v=2').catch(()=>{});
+  });
+})();
+
+// unified tick
+setInterval(()=>{
+  updateTimerUI();
+  updateStopwatchUI();
+  updateWorldUI();
+  updateSunPhase();
+}, 200);
+
+// initial
+updateTimerUI();
+updateStopwatchUI();
+updateWorldUI();
+updateSunPhase();
+</script>
+</body>
+</html>
